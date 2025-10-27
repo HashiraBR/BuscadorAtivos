@@ -217,39 +217,36 @@ class VisualizadorAnalises:
 
         plt.show()
 
-    def _calcular_wsm(self, df, graham_peso=0.6, barsi_peso=0.4, pl_peso=0.0):
-        """
-        Calcula score WSM com pesos personalizados
-        """
-        df_wsm = df.copy()
+    def _calcular_wsm(self, df, graham_peso=0.5, barsi_peso=0.5, pl_peso=0.0):
+        """Calcula WSM de forma segura, lidando com colunas ausentes"""
+        try:
+            # Verificar colunas disponíveis
+            colunas_disponiveis = df.columns
 
-        # GARANTIR que as colunas são numéricas
-        if 'graham_margem' in df_wsm.columns:
-            df_wsm['graham_margem'] = pd.to_numeric(df_wsm['graham_margem'], errors='coerce')
-        if 'barsi_margem' in df_wsm.columns:
-            df_wsm['barsi_margem'] = pd.to_numeric(df_wsm['barsi_margem'], errors='coerce')
-        if 'pl_subsetor_margem' in df_wsm.columns:
-            df_wsm['pl_subsetor_margem'] = pd.to_numeric(df_wsm['pl_subsetor_margem'], errors='coerce')
+            # Inicializar score
+            df_wsm = df.copy()
+            df_wsm['score_temp'] = 0
 
-        if pl_peso > 0:
-            # Graham + Barsi + PL Descontado
-            df_wsm['wsm_score'] = (
-                    df_wsm['graham_margem'].fillna(0) * graham_peso +
-                    df_wsm['barsi_margem'].fillna(0) * barsi_peso +
-                    df_wsm['pl_subsetor_margem'].fillna(0) * pl_peso
-            )
-        else:
-            # Apenas Graham + Barsi
-            df_wsm['wsm_score'] = (
-                    df_wsm['graham_margem'].fillna(0) * graham_peso +
-                    df_wsm['barsi_margem'].fillna(0) * barsi_peso
-            )
+            # Adicionar Graham se disponível
+            if 'graham_margem' in colunas_disponiveis:
+                df_wsm['score_temp'] += df_wsm['graham_margem'].fillna(0) * graham_peso
 
-        # Ordenar por score
-        df_wsm = df_wsm.sort_values('wsm_score', ascending=False)
-        df_wsm['wsm_ranking'] = range(1, len(df_wsm) + 1)
+            # Adicionar Barsi se disponível
+            if 'barsi_margem' in colunas_disponiveis:
+                df_wsm['score_temp'] += df_wsm['barsi_margem'].fillna(0) * barsi_peso
 
-        return df_wsm
+            # Adicionar PL Descontado se disponível
+            if 'pl_subsetor_margem' in colunas_disponiveis and pl_peso > 0:
+                df_wsm['score_temp'] += df_wsm['pl_subsetor_margem'].fillna(0) * pl_peso
+
+            # Renomear a coluna para wsm_score para compatibilidade
+            df_wsm = df_wsm.rename(columns={'score_temp': 'wsm_score'})
+
+            return df_wsm.sort_values('wsm_score', ascending=False)
+
+        except Exception as e:
+            print(f"Erro ao calcular WSM: {e}")
+            return df
 
     def _criar_grafico_wsm_individual(self, ax, df, titulo):
         """

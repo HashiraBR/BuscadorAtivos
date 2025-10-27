@@ -88,12 +88,19 @@ IRBR3
 - Cálculo: Comparação do PL atual com media do subsetor
 - Foco: Oportunidades setoriais
 
-## Rankings WSM
+### Rankings WSM
 
-O sistema gera dois rankings com ponderações diferentes:
+O sistema gera alguns rankings com base no método de Bejamim Graham, Preço-teto de Barsi, PL descontado e Método de Soma Ponderada (WSM) com ponderações diferentes para cada indicador:
 
-1. **Graham (60%) + Barsi (40%)**
-2. **Graham (50%) + Barsi (20%) + PL Descontado (30%)**
+1. WSM: **Graham (60%) + Barsi (40%)**
+2. WSM: **Graham (50%) + Barsi (20%) + PL Descontado (30%)**
+3. WSM: completo
+
+Para alterar os pesos, edite os arquivos:
+```
+methodologies/wsm_fundamentalista.py #para WSM completo
+criar_graficos_wsm_lado_a_lado em visualization/visualizador.py #Demais WSM
+```
 
 ## Saídas
 
@@ -102,11 +109,20 @@ O sistema gera dois rankings com ponderações diferentes:
 - data/analises/ranking_metodologias.png: Graficos individuais
 - data/analises/ranking_wsm_pesos.png: Comparação WSM
 - data/analises/ranking_consolidado.png: Visao consolidada
+- data/analises/wsm_completo_*.png: Vários gráficos para análise com base nos pesos oferecidos
 
 ### Console
 - Ranking das melhores oportunidades por metodologia
 - Estatisticas de margens positivas
 - Ações removidas por filtro
+
+### Considerações
+Algumas empresas podem não aparecer nos rankings gerados pela metodologia WSM devido a características específicas de seus setores que impedem o cálculo adequado das médias ponderadas. Por exemplo: setor bancário e seguradoras. 
+
+Para visualizar todas as empresas que não foram consideradas no ranking WSM:
+- Consulte o arquivo: `data/analises/resultados_wsm_completo.csv`
+- Verifique a coluna Score_WSM - valores nulos ou ausentes indicam empresas excluídas da análise
+- Analise o campo Subsetor para identificar padrões de exclusão por segmento
 
 ## Exemplos de Gráficos
 
@@ -119,10 +135,9 @@ O sistema gera dois rankings com ponderações diferentes:
 ### Ranking Consolidado
 ![Ranking Consolidado](data/analises/ranking_consolidado.png)
 
-## Personalização
+Diversos outros gráficos são gerados e você pode verificar exemplos no diretório `data/analises`
 
-### Modificar Pesos WSM
-Edite o método `criar_graficos_wsm_lado_a_lado em visualization/visualizador.py`
+## Personalização
 
 ### Adicionar Novas Metodologias
 1. Crie nova classe em `methodologies/`
@@ -140,5 +155,19 @@ Edite o método `criar_graficos_wsm_lado_a_lado em visualization/visualizador.py
 ### Arquivo de Exclusão Não Encontrado
 - Certifique-se que `ignorar_acoes.txt` está na raíz do projeto
 
+## Refinamento da Análise
+- **Personalize seus critérios:** Ignore empresas que não se alinham com seu perfil de investimento, estratégia ou tolerância a risco
+- **Lista de exclusão:** Utilize o arquivo ignorar_acoes.txt para excluir empresas que não deseja analisar, como:
+  - Empresas recentes na bolsa (IPO recente)
+  - Setores que não compreende ou não confia 
+  - Companhias com histórico problemático ou governance questionável 
+  - Ativos com liquidez insuficiente para seu portfólio
+
+## Validação dos Resultados
+- **Os rankings são pontos de partida:** Utilize as listas geradas como screening inicial, não como decisão final
+- **Análise individual obrigatória:** Sempre investigue cada empresa do ranking antes de qualquer consideração de investimento
+- **Contexto é fundamental:** Considere fatores macroeconômicos, tendências setoriais e eventos específicos da empresa
+
 ## Licença
-Projeto para fins educacionais e de pesquisa.
+- Projeto para fins educacionais e de pesquisa.
+
