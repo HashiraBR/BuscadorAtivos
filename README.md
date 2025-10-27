@@ -2,12 +2,20 @@
 
 Um analisador fundamentalista de ações brasileiras que utiliza múltiplas metodologias de valuation para identificar oportunidades de investimento.
 
+Este analisador de ações realiza as seguintes tarefas:
+- Busca em todas as empresas listadas na bolsa àquelas que (você pode alterar na codificaçaõ os parâmetros de filtro): 
+  - Está com PL positivo (não está gerando prejuízo no momento).
+  - Possui liquidez maior que R$ 1.000.000,00 diário.
+  - Teve crescimento de receita nos últimos 5 anos.
+- Gera vários rankings de ações com base em metodologias renomadas na literatura, como Número de Graham e Preço-Teto de Barsi.
+
 ## Funcionalidades
 
 ### Metodologias Implementadas
 - **Graham**: Baseado na metodologia de Benjamin Graham
 - **Barsi**: Foco em dividendos e preco teto
 - **PL Descontado**: Análise setorial comparativa
+- **WSM com todos os indicadores fundamentalistas**
 
 ### Análises Geradas
 - Preços teto e margens de segurança para cada metodologia
@@ -34,12 +42,15 @@ AnalysisOfStockMarketShares/
 ├── data/
 │   └── download/
 │   └── analises/
+│   └── fundamentus.py
 ├── methodologies/
 │   ├── graham.py
 │   ├── barsi.py
 │   └── pl_descontado.py
+│   └── wsm_fundamentalsita.py
 └── visualization/
     └── visualizador.py
+    └── visualizador_wsm.py
 ```
 ## Como Usar
 
