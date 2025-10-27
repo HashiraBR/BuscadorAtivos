@@ -108,12 +108,12 @@ O sistema gera dois rankings com ponderações diferentes:
 - Estatisticas de margens positivas
 - Ações removidas por filtro
 
-## Exemplos de Graficos
+## Exemplos de Gráficos
 
 ### Ranking por Metodologia
 ![Ranking das Metodologias](data/analises/ranking_metodologias.png)
 
-### Comparacao WSM - Pesos Diferentes  
+### Comparação WSM - Pesos Diferentes  
 ![Comparacao WSM](data/analises/ranking_wsm_pesos.png)
 
 ### Ranking Consolidado
