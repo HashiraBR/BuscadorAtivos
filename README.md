@@ -1,19 +1,19 @@
 # Analysis of Stock Market Shares
 
-Um analisador fundamentalista de acoes brasileiras que utiliza multiplas metodologias de valuation para identificar oportunidades de investimento.
+Um analisador fundamentalista de ações brasileiras que utiliza múltiplas metodologias de valuation para identificar oportunidades de investimento.
 
 ## Funcionalidades
 
 ### Metodologias Implementadas
 - **Graham**: Baseado na metodologia de Benjamin Graham
 - **Barsi**: Foco em dividendos e preco teto
-- **PL Descontado**: Analise setorial comparativa
+- **PL Descontado**: Análise setorial comparativa
 
 ### Análises Geradas
-- Precos teto e margens de seguranca para cada metodologia
-- Rankings WSM (Weighted Sum Model) com diferentes ponderacoes
-- Graficos comparativos e relatorios visuais
-- Filtros personalizaveis por acao
+- Preços teto e margens de segurança para cada metodologia
+- Rankings WSM (Weighted Sum Model) com diferentes ponderações
+- Gráficos comparativos e relatórios visuais
+- Filtros personalizáveis por ação
 
 ## Instalação
 
@@ -78,14 +78,14 @@ IRBR3
 
 ### Graham
 - Cálculo: √(22.5 × LPA × VPA)
-- Foco: Valor intrinseco e margem de segurança
+- Foco: Valor intrínseco e margem de segurança
 
 ### Barsi
 - Cálculo: (Payout × LPA) / DY_Desejado
 - Foco: Dividend yield e pagamento consistente
 
 ### PL Descontado
-- Cálculo: Comparacao do PL atual com media do subsetor
+- Cálculo: Comparação do PL atual com media do subsetor
 - Foco: Oportunidades setoriais
 
 ## Rankings WSM
@@ -100,7 +100,7 @@ O sistema gera dois rankings com ponderações diferentes:
 ### Arquivos Gerados
 - data/download/ativos_DD_MM_YYYY.csv: Dataset completo com analises
 - data/analises/ranking_metodologias.png: Graficos individuais
-- data/analises/ranking_wsm_pesos.png: Comparacao WSM
+- data/analises/ranking_wsm_pesos.png: Comparação WSM
 - data/analises/ranking_consolidado.png: Visao consolidada
 
 ### Console
@@ -122,7 +122,7 @@ O sistema gera dois rankings com ponderações diferentes:
 ## Personalização
 
 ### Modificar Pesos WSM
-Edite o metodo `criar_graficos_wsm_lado_a_lado em visualization/visualizador.py`
+Edite o método `criar_graficos_wsm_lado_a_lado em visualization/visualizador.py`
 
 ### Adicionar Novas Metodologias
 1. Crie nova classe em `methodologies/`
