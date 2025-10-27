@@ -111,13 +111,13 @@ O sistema gera dois rankings com ponderações diferentes:
 ## Exemplos de Graficos
 
 ### Ranking por Metodologia
-<img src="data/analises/ranking_metodologias.png" width="400">
+![Ranking das Metodologias](data/analises/ranking_metodologias.png)
 
-### Comparacao WSM - Pesos Diferentes
-<img src="data/analises/ranking_wsm_pesos.png" width="400">
+### Comparacao WSM - Pesos Diferentes  
+![Comparacao WSM](data/analises/ranking_wsm_pesos.png)
 
-### Ranking Consolidado  
-<img src="data/analises/ranking_consolidado.png" width="400">
+### Ranking Consolidado
+![Ranking Consolidado](data/analises/ranking_consolidado.png)
 
 ## Personalização
 
