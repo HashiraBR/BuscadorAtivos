@@ -25,7 +25,7 @@ Um analisador fundamentalista de acoes brasileiras que utiliza multiplas metodol
 ```pip install pandas numpy matplotlib seaborn fundamentus```
 
 ## Estrutura do Projeto
-
+```
 AnalysisOfStockMarketShares/
 ├── run_analysis.sh
 ├── run_analysis.bat
@@ -40,7 +40,7 @@ AnalysisOfStockMarketShares/
 │   └── pl_descontado.py
 └── visualization/
     └── visualizador.py
-
+```
 ## Como Usar
 
 ### Execução Rápida
@@ -108,6 +108,16 @@ O sistema gera dois rankings com ponderações diferentes:
 - Estatisticas de margens positivas
 - Ações removidas por filtro
 
+## Exemplos de Graficos
+
+### Ranking por Metodologia
+<img src="data/analises/ranking_metodologias.png" width="400">
+
+### Comparacao WSM - Pesos Diferentes
+<img src="data/analises/ranking_wsm_pesos.png" width="400">
+
+### Ranking Consolidado  
+<img src="data/analises/ranking_consolidado.png" width="400">
 
 ## Personalização
 
