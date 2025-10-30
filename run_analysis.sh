@@ -27,9 +27,24 @@ echo "========================================="
 echo "  ANALISADOR DE AÇÕES - INICIANDO"
 echo "========================================="
 
-# Verificar se estamos no diretório correto
+## Verificar se estamos no diretório correto
+#if [ ! -f "main.py" ]; then
+#    echo "ERRO: Execute este script da pasta raiz do projeto!"
+#    exit 1
+#fi
+
+# Descobrir o diretório onde o script está localizado
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Entrar no diretório do script
+cd "$SCRIPT_DIR" || {
+    echo "ERRO: Não foi possível acessar o diretório do script!"
+    exit 1
+}
+
+# Verificar se o main.py existe
 if [ ! -f "main.py" ]; then
-    echo "ERRO: Execute este script da pasta raiz do projeto!"
+    echo "ERRO: Arquivo main.py não encontrado em $SCRIPT_DIR"
     exit 1
 fi
 
