@@ -181,7 +181,6 @@ class AnalisadorFundamentalistaWSM:
                 if mascara_dados_validos.sum() > 0:
                     valores_validos = valores[mascara_dados_validos]
                     pesos_validos = pesos[mascara_dados_validos]
-
                     try:
                         media_ponderada = np.average(valores_validos, weights=pesos_validos)
                         medias_ponderadas[indicador] = media_ponderada
@@ -384,7 +383,6 @@ class AnalisadorFundamentalistaWSM:
 
             # Calcular score para cada empresa do grupo
             for indice, empresa in grupo_limpo.iterrows():
-                # ⬇️ MODIFICADO: Agora retorna também a completude
                 score_wsm, completude = self._calcular_score_empresa(empresa, medias_grupo, False)
                 score_wsm_penalidade, _ = self._calcular_score_empresa(empresa, medias_grupo, True)
 
@@ -397,7 +395,7 @@ class AnalisadorFundamentalistaWSM:
                     'valor_mercado': empresa.get('Valor_de_mercado', 0),
                     'score_wsm': score_wsm,
                     'score_wsm_penalidade': score_wsm_penalidade,
-                    'completude_indicadores': completude,  # ⬅️ AGORA FUNCIONA
+                    'completude_indicadores': completude,
                     'margem_graham': empresa.get('margem_seguranca_graham', 0),
                     'margem_barsi': empresa.get('margem_seguranca_barsi', 0),
                     'preco_lucro': empresa.get('PL', 0),

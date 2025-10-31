@@ -116,7 +116,7 @@ class ProvedorDadosFundamentus:
             "PAtiv_Circ_Liq", "Div_Yield", "EV_EBITDA", "EV_EBIT",
             "Cres_Rec_5a", "Marg_Bruta", "Marg_EBIT", "Marg_Liquida",
             "EBIT_Ativo", "ROIC", "ROE", "Liquidez_Corr", "Div_Br_Patrim",
-            "Giro_Ativos", "PL", "LPA", "VPA", "Cotacao", "Nro_Acoes"
+            "Giro_Ativos", "PL", "LPA", "VPA", "PVP", "Cotacao", "Nro_Acoes", "Valor_de_mercado"
         ]
 
         colunas_convertidas = 0
