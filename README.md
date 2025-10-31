@@ -68,11 +68,12 @@ AnalysisOfStockMarketShares/
 ```python main.py```
 
 ### Parâmetros Opcionais
-#### Atualizar dados (ignorar cache)
-```./run_analysis.sh --no-cache```
-
-#### Apenas gerar gráficos (usar dados existentes)
-```./run_analysis.sh --apenas-graficos```
+```
+./run_analysis.sh --atualizar-dados 
+./run_analysis.sh --apenas-visualizacoes 
+./run_analysis.sh --quantidade-rankings N 
+./run_analysis.sh --exportar-dados
+```
 
 ## Configuração
 
@@ -115,6 +116,36 @@ Para alterar os pesos, edite os arquivos:
 metodologias/analisador_fundamentalista_wsm.py #para WSM completo
 visualizacao/gerador_visualizacoes.py #Demais WSM
 ```
+
+#### Fluxo de Análise WSM 
+
+##### 1. Coleta de Dados
+- Captura dados fundamentais via Fundamentus
+- Aplica filtros iniciais (lucratividade, liquidez, crescimento)
+
+##### 2. Processamento
+- Calcula indicadores individuais (Graham, Barsi, PL Descontado)
+- Aplica análise setorial comparativa
+- Remove outliers por subsetor
+
+##### 3. Cálculo WSM
+- Calcula scores usando 16 indicadores ponderados em 5 categorias:
+  - Valuation Tradicional (20%)
+  - Rentabilidade (30%) 
+  - Crescimento (15%)
+  - Saúde Financeira (15%)
+  - Valuation Avançado (20%)
+- Gera scores com e sem penalidades
+
+##### 4. Geração de Rankings
+- Ordena empresas por score WSM
+- Cria rankings comparativos
+- Produz visualizações gráficas
+
+##### 5. Saída
+- Exporta dados completos em CSV
+- Gera relatórios visuais em PNG
+- Fornece diagnóstico de completude de dados
 
 ## Saídas
 
@@ -180,4 +211,5 @@ Veja:
 ## Licença
 - Projeto para fins educacionais e de pesquisa.
 - Autor: Danne Makleyston Gomes Pereira
+- e-mail: makleyston@gmail.com
 
