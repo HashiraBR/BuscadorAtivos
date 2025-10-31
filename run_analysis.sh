@@ -2,22 +2,33 @@
 
 # Configurações
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NO_CACHE=false
-APENAS_GRAFICOS=false
+ATUALIZAR_DADOS=false
+APENAS_VISUALIZACOES=false
+QUANTIDADE_RANKINGS=15
+EXPORTAR_DADOS=false
 
 # Processar parâmetros
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --no-cache)
-            NO_CACHE=true
+        --atualizar-dados)
+            ATUALIZAR_DADOS=true
             shift
             ;;
-        --apenas-graficos)
-            APENAS_GRAFICOS=true
+        --apenas-visualizacoes)
+            APENAS_VISUALIZACOES=true
+            shift
+            ;;
+        --quantidade-rankings)
+            QUANTIDADE_RANKINGS="$2"
+            shift 2
+            ;;
+        --exportar-dados)
+            EXPORTAR_DADOS=true
             shift
             ;;
         *)
             echo "Parâmetro desconhecido: $1"
+            echo "Parâmetros válidos: --atualizar-dados --apenas-visualizacoes --quantidade-rankings N --exportar-dados"
             exit 1
             ;;
     esac
@@ -26,12 +37,6 @@ done
 echo "========================================="
 echo "  ANALISADOR DE AÇÕES - INICIANDO"
 echo "========================================="
-
-## Verificar se estamos no diretório correto
-#if [ ! -f "main.py" ]; then
-#    echo "ERRO: Execute este script da pasta raiz do projeto!"
-#    exit 1
-#fi
 
 # Descobrir o diretório onde o script está localizado
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -42,28 +47,42 @@ cd "$SCRIPT_DIR" || {
     exit 1
 }
 
-# Verificar se o main.py existe
+# Verificar se o arquivo principal existe
 if [ ! -f "main.py" ]; then
-    echo "ERRO: Arquivo main.py não encontrado em $SCRIPT_DIR"
+    echo "ERRO: Arquivo principal do sistema não encontrado em $SCRIPT_DIR"
+    echo "💡 Certifique-se de que o nome do arquivo principal está correto"
     exit 1
 fi
 
 # Construir comando
 COMANDO="python3 main.py"
 
-if [ "$NO_CACHE" = true ]; then
-    COMANDO="$COMANDO --no-cache"
+if [ "$ATUALIZAR_DADOS" = true ]; then
+    COMANDO="$COMANDO --atualizar-dados"
 fi
 
-if [ "$APENAS_GRAFICOS" = true ]; then
-    COMANDO="$COMANDO --apenas-graficos"
+if [ "$APENAS_VISUALIZACOES" = true ]; then
+    COMANDO="$COMANDO --apenas-visualizacoes"
+fi
+
+if [ "$QUANTIDADE_RANKINGS" != "15" ]; then
+    COMANDO="$COMANDO --quantidade-rankings $QUANTIDADE_RANKINGS"
+fi
+
+if [ "$EXPORTAR_DADOS" = true ]; then
+    COMANDO="$COMANDO --exportar-dados"
 fi
 
 echo "Executando: $COMANDO"
+echo ""
+
 $COMANDO
 
 if [ $? -eq 0 ]; then
-    echo "Análise concluída com sucesso!"
+    echo ""
+    echo "✅ Análise concluída com sucesso!"
 else
-    echo "ERRO: Houve um problema na execução."
+    echo ""
+    echo "❌ ERRO: Houve um problema na execução."
+    exit 1
 fi

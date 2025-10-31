@@ -1,335 +1,571 @@
-from data.fundamentus import DataProviderFundamentus
-from methodologies.graham import AnalisadorGraham
-from methodologies.barsi import AnalisadorBarsi
-from methodologies.pl_descontado import AnalisadorPLDescontado
-from methodologies.wsm_fundamentalista import AnalisadorFundamentalistaCompleto, mostrar_pesos_detalhados
-from visualization.visualizador import VisualizadorAnalises
-from visualization.visualizador_wsm import VisualizadorScoreFundamentalista
+from data.provedor_dados_fundamentus import ProvedorDadosFundamentus
+from metodologias.analisador_graham import AnalisadorGraham
+from metodologias.analisador_barsi import AnalisadorBarsi
+from metodologias.analisador_pl_descontado import AnalisadorPLDescontado
+from metodologias.analisador_fundamentalista_wsm import AnalisadorFundamentalistaWSM, exibir_estrutura_pesos
+from visualizacao.gerador_visualizacoes import GeradorVisualizacoes
+from visualizacao.gerador_visualizacoes_wsm import GeradorVisualizacoesWSM
 import pandas as pd
 import argparse
 import matplotlib.pyplot as plt
 import os
+from datetime import datetime
 
 
-class AnalisadorAcoes:
+class SistemaAnaliseFundamentalista:
+    """
+    Sistema principal de análise fundamentalista de ações
+    Integra múltiplas metodologias de valuation e gera relatórios completos
+    """
+
     def __init__(self):
-        self.data_provider = DataProviderFundamentus()
+        self.provedor_dados = ProvedorDadosFundamentus()
+        self._configurar_ambiente()
 
-    def parse_arguments(self):
-        """Configura e parseia os argumentos de linha de comando"""
-        parser = argparse.ArgumentParser(description='Analisador de Acoes - Multiple Methodologies')
+    def _configurar_ambiente(self):
+        """Configura os diretórios e ambiente necessário para a análise"""
+        diretorios_necessarios = [
+            "output/dados/analises",
+            "output/dados/cache",
+            "output/graficos"
+        ]
 
-        parser.add_argument(
-            '--no-cache',
-            action='store_true',
-            help='Forcar atualizacao dos dados (ignorar cache)'
+        for diretorio in diretorios_necessarios:
+            os.makedirs(diretorio, exist_ok=True)
+
+        print("✅ Ambiente configurado com sucesso")
+
+    def _processar_argumentos(self):
+        """Processa e valida os argumentos da linha de comando"""
+        analisador_argumentos = argparse.ArgumentParser(
+            description='Sistema de Análise Fundamentalista - Integração Multi-Metodologias'
         )
 
-        parser.add_argument(
-            '--apenas-graficos',
+        analisador_argumentos.add_argument(
+            '--atualizar-dados',
             action='store_true',
-            help='Apenas gerar graficos (usar dados existentes)'
+            help='Forçar atualização dos dados (ignorar cache)'
         )
 
-        parser.add_argument(
-            '--top-n',
+        analisador_argumentos.add_argument(
+            '--apenas-visualizacoes',
+            action='store_true',
+            help='Apenas gerar visualizações (usar dados existentes)'
+        )
+
+        analisador_argumentos.add_argument(
+            '--quantidade-rankings',
             type=int,
             default=15,
-            help='Numero de acoes no ranking (padrao: 15)'
+            help='Número de ações no ranking final (padrão: 15)'
         )
 
-        return parser.parse_args()
+        analisador_argumentos.add_argument(
+            '--exportar-dados',
+            action='store_true',
+            help='Exportar dados completos para Excel'
+        )
 
-    def carregar_ignorar_acoes(self, arquivo='ignorar_acoes.txt'):
-        """Carrega lista de ações para excluir de um arquivo de texto"""
-        acoes_excluir = []
+        return analisador_argumentos.parse_args()
+
+    def _carregar_lista_exclusoes(self, caminho_arquivo='config/lista_exclusoes.txt'):
+        """
+        Carrega lista de tickers para exclusão da análise
+
+        Args:
+            caminho_arquivo (str): Caminho para o arquivo de exclusões
+
+        Returns:
+            list: Lista de tickers a serem excluídos
+        """
+        tickers_excluir = []
 
         try:
-            with open(arquivo, 'r', encoding='utf-8') as f:
-                for linha in f:
+            with open(caminho_arquivo, 'r', encoding='utf-8') as arquivo:
+                for linha in arquivo:
                     linha = linha.strip()
+                    # Ignora linhas vazias e comentários
                     if linha and not linha.startswith('#'):
-                        acoes_excluir.append(linha.upper())
+                        tickers_excluir.append(linha.upper())
 
-            print(f"Carregadas {len(acoes_excluir)} ações para excluir do arquivo: {arquivo}")
-            return acoes_excluir
+            print(f"📋 Lista de exclusões carregada: {len(tickers_excluir)} tickers")
+            return tickers_excluir
 
         except FileNotFoundError:
-            print(f"Arquivo de exclusão não encontrado: {arquivo}")
-            print("Nenhuma ação será excluída.")
+            print(f"⚠️ Arquivo de exclusões não encontrado: {caminho_arquivo}")
+            print("   Nenhum ticker será excluído da análise")
             return []
-        except Exception as e:
-            print(f"Erro ao carregar arquivo de exclusão: {e}")
+        except Exception as erro:
+            print(f"❌ Erro ao carregar lista de exclusões: {erro}")
             return []
 
-    def adicionar_analises(self, df_original):
-        """Adiciona colunas de análise ao DataFrame"""
-        print("Adicionando analises ao dataset...")
+    def _aplicar_metodologias_valuation(self, dataframe_original):
+        """
+        Aplica múltiplas metodologias de valuation ao DataFrame
 
-        df = df_original.copy()
+        Args:
+            dataframe_original (pd.DataFrame): DataFrame com dados fundamentais
 
-        # Inicializar novas colunas
-        df = df.assign(
-            graham_teto=None,
-            graham_margem=None,
-            barsi_teto=None,
-            barsi_margem=None,
-            pl_subsetor_alvo=None,
-            pl_subsetor_margem=None
-        )
+        Returns:
+            pd.DataFrame: DataFrame com colunas de valuation adicionadas
+        """
+        print("\n🔍 Aplicando metodologias de valuation...")
 
-        for index, row in df.iterrows():
+        dataframe_analise = dataframe_original.copy()
+
+        # Inicializar colunas de valuation
+        colunas_valuation = [
+            'preco_teto_graham', 'margem_seguranca_graham',
+            'preco_teto_barsi', 'margem_seguranca_barsi',
+            'preco_alvo_pl_setor', 'margem_seguranca_pl_setor'
+        ]
+
+        for coluna in colunas_valuation:
+            dataframe_analise[coluna] = None
+
+        total_ativos = len(dataframe_analise)
+        ativos_processados = 0
+
+        for indice, linha in dataframe_analise.iterrows():
             try:
-                ticker = row.get('Papel')
-                cotacao = row.get('Cotacao')
-                lpa = row.get('LPA')
-                vpa = row.get('VPA')
-                payout = row.get('Payout_Medio')
-                pl_medio = row.get('PL_Medio_Subsetor')
+                ticker = linha.get('ticker')
+                preco_atual = linha.get('Cotacao')
+                lucro_por_acao = linha.get('LPA')
+                valor_patrimonial_por_acao = linha.get('VPA')
+                payout_medio = linha.get('Payout_Medio')
+                pl_medio_setor = linha.get('PL_Medio_Subsetor')
 
                 # Converter para numérico
-                cotacao_num = pd.to_numeric(cotacao, errors='coerce')
-                lpa_num = pd.to_numeric(lpa, errors='coerce')
-                vpa_num = pd.to_numeric(vpa, errors='coerce')
-                payout_num = pd.to_numeric(payout, errors='coerce')
-                pl_medio_num = pd.to_numeric(pl_medio, errors='coerce')
+                preco_atual_numerico = pd.to_numeric(preco_atual, errors='coerce')
+                lpa_numerico = pd.to_numeric(lucro_por_acao, errors='coerce')
+                vpa_numerico = pd.to_numeric(valor_patrimonial_por_acao, errors='coerce')
+                payout_numerico = pd.to_numeric(payout_medio, errors='coerce')
+                pl_setor_numerico = pd.to_numeric(pl_medio_setor, errors='coerce')
 
                 # Aplicar metodologias
-                self._aplicar_graham(df, index, ticker, cotacao_num, lpa_num, vpa_num)
-                self._aplicar_barsi(df, index, ticker, cotacao_num, lpa_num, payout_num)
-                self._aplicar_pl_descontado(df, index, ticker, cotacao_num, lpa_num, pl_medio_num)
+                self._aplicar_metodologia_graham(
+                    dataframe_analise, indice, ticker,
+                    preco_atual_numerico, lpa_numerico, vpa_numerico
+                )
 
-            except Exception as e:
-                print(f"Erro em {row.get('Papel', 'Unknown')}: {e}")
+                self._aplicar_metodologia_barsi(
+                    dataframe_analise, indice, ticker,
+                    preco_atual_numerico, lpa_numerico, payout_numerico
+                )
+
+                self._aplicar_metodologia_pl_descontado(
+                    dataframe_analise, indice, ticker,
+                    preco_atual_numerico, lpa_numerico, pl_setor_numerico
+                )
+
+                ativos_processados += 1
+                if ativos_processados % 50 == 0:
+                    print(f"   📊 Processados {ativos_processados}/{total_ativos} ativos...")
+
+            except Exception as erro:
+                print(f"   ⚠️ Erro ao processar {linha.get('ticker', 'Desconhecido')}: {erro}")
                 continue
 
-        # Converter colunas finais para numérico
-        colunas_numericas = ['graham_margem', 'barsi_margem', 'pl_subsetor_margem']
-        for coluna in colunas_numericas:
-            df[coluna] = pd.to_numeric(df[coluna], errors='coerce')
+        # Garantir tipos numéricos nas colunas de margem
+        colunas_margem = ['margem_seguranca_graham', 'margem_seguranca_barsi', 'margem_seguranca_pl_setor']
+        for coluna in colunas_margem:
+            dataframe_analise[coluna] = pd.to_numeric(dataframe_analise[coluna], errors='coerce')
 
-        return df
+        print(f"✅ Metodologias aplicadas: {ativos_processados}/{total_ativos} ativos processados")
+        return dataframe_analise
 
-    def _aplicar_graham(self, df, index, ticker, cotacao, lpa, vpa):
-        """Aplica metodologia de Graham"""
-        if (pd.notna(cotacao) and pd.notna(lpa) and pd.notna(vpa) and
-                lpa > 0 and vpa > 0 and cotacao > 0):
+    def _aplicar_metodologia_graham(self, dataframe, indice, ticker, preco_atual, lpa, vpa):
+        """Aplica a metodologia de Benjamin Graham para valuation"""
+        if (pd.notna(preco_atual) and pd.notna(lpa) and pd.notna(vpa) and
+                lpa > 0 and vpa > 0 and preco_atual > 0):
 
-            graham = AnalisadorGraham(ticker, cotacao, lpa, vpa)
-            graham_teto = graham.calcular_graham_number()
-            margem = graham.calcular_margem_seguranca()
+            analisador_graham = AnalisadorGraham(ticker, preco_atual, lpa, vpa)
+            preco_teto_graham = analisador_graham.calcular_numero_graham()
+            margem_seguranca = analisador_graham.calcular_margem_seguranca()
 
-            if graham_teto is not None:
-                df.loc[index, 'graham_teto'] = float(graham_teto)
-            if margem is not None:
-                df.loc[index, 'graham_margem'] = float(margem['percentual'])
+            if preco_teto_graham is not None:
+                dataframe.loc[indice, 'preco_teto_graham'] = float(preco_teto_graham)
+            if margem_seguranca is not None:
+                dataframe.loc[indice, 'margem_seguranca_graham'] = float(margem_seguranca['percentual'])
 
-    def _aplicar_barsi(self, df, index, ticker, cotacao, lpa, payout):
-        """Aplica metodologia de Barsi"""
-        if (pd.notna(cotacao) and pd.notna(lpa) and pd.notna(payout) and
-                lpa > 0 and cotacao > 0 and payout > 0):
+    def _aplicar_metodologia_barsi(self, dataframe, indice, ticker, preco_atual, lpa, payout):
+        """Aplica a metodologia de Luiz Barsi para valuation"""
+        if (pd.notna(preco_atual) and pd.notna(lpa) and pd.notna(payout) and
+                lpa > 0 and preco_atual > 0 and payout > 0):
 
-            barsi = AnalisadorBarsi(ticker, cotacao, lpa, payout)
-            barsi_teto = barsi.calcular_preco_teto()
-            margem = barsi.calcular_margem_seguranca()
+            analisador_barsi = AnalisadorBarsi(ticker, preco_atual, lpa, payout)
+            preco_teto_barsi = analisador_barsi.calcular_preco_teto()
+            margem_seguranca = analisador_barsi.calcular_margem_seguranca()
 
-            if barsi_teto is not None:
-                df.loc[index, 'barsi_teto'] = float(barsi_teto)
-            if margem is not None:
-                df.loc[index, 'barsi_margem'] = float(margem['percentual'])
+            if preco_teto_barsi is not None:
+                dataframe.loc[indice, 'preco_teto_barsi'] = float(preco_teto_barsi)
+            if margem_seguranca is not None:
+                dataframe.loc[indice, 'margem_seguranca_barsi'] = float(margem_seguranca['percentual'])
 
-    def _aplicar_pl_descontado(self, df, index, ticker, cotacao, lpa, pl_medio):
-        """Aplica metodologia de PL Descontado"""
-        if (pd.notna(cotacao) and pd.notna(lpa) and pd.notna(pl_medio) and
-                lpa > 0 and cotacao > 0):
+    def _aplicar_metodologia_pl_descontado(self, dataframe, indice, ticker, preco_atual, lpa, pl_medio_setor):
+        """Aplica metodologia de P/L descontado em relação ao setor"""
+        if (pd.notna(preco_atual) and pd.notna(lpa) and pd.notna(pl_medio_setor) and
+                lpa > 0 and preco_atual > 0):
 
-            pl_desc = AnalisadorPLDescontado(ticker, cotacao, lpa, pl_medio)
-            analise = pl_desc.analise_completa()
+            analisador_pl_desc = AnalisadorPLDescontado(ticker, preco_atual, lpa, pl_medio_setor)
+            resultado_analise = analisador_pl_desc.executar_analise_completa()
 
-            if analise['preco_alvo'] is not None:
-                df.loc[index, 'pl_subsetor_alvo'] = float(analise['preco_alvo'])
-            if analise['margem_seguranca'] is not None:
-                df.loc[index, 'pl_subsetor_margem'] = float(analise['margem_seguranca']['percentual'])
+            if resultado_analise['preco_alvo'] is not None:
+                dataframe.loc[indice, 'preco_alvo_pl_setor'] = float(resultado_analise['preco_alvo'])
+            if resultado_analise['margem_seguranca'] is not None:
+                dataframe.loc[indice, 'margem_seguranca_pl_setor'] = float(
+                    resultado_analise['margem_seguranca']['percentual'])
 
-    def wsm_analise_completa(self, df, top_n):
-        """Executa análise completa WSM e retorna resultados COMPLETOS"""
-        print("\n" + "=" * 60)
-        print("ANALISE FUNDAMENTALISTA COMPLETA - WSM")
-        print("=" * 60)
+    def _executar_analise_fundamentalista_wsm(self, dataframe, quantidade_rankings):
+        """
+        Executa análise fundamentalista completa usando Weighted Scoring Model (WSM)
 
-        # Mostrar estrutura de pesos
-        pesos_df = mostrar_pesos_detalhados()
-        print("\nESTRUTURA DE PESOS:")
-        print(pesos_df.to_string(index=False))
+        Args:
+            dataframe (pd.DataFrame): DataFrame com dados fundamentais
+            quantidade_rankings (int): Número de empresas no ranking final
 
-        # Executar análise - isso retorna o DataFrame COMPLETO com scores
-        analisador = AnalisadorFundamentalistaCompleto(df)
-        resultados_completos = analisador.analisar()  # DataFrame completo com todas as empresas
+        Returns:
+            tuple: (DataFrame completo com scores, DataFrame do top ranking)
+        """
+        print("\n" + "=" * 70)
+        print("🎯 ANÁLISE FUNDAMENTALISTA COMPLETA - WSM")
+        print("=" * 70)
 
-        print("=" * 80)
-
-        # Preparar apenas as top empresas para exibição no terminal
-        top_empresas = self._preparar_top_empresas(resultados_completos, top_n)
-        self._exibir_resultados(resultados_completos, top_empresas)
-
-        # CORREÇÃO: Retornar o DataFrame COMPLETO e o top empresas
-        return resultados_completos, top_empresas
-
-    def _preparar_top_empresas(self, resultados, top_n):
-        """Prepara dataframe com top empresas formatadas"""
-        top_empresas = resultados[
-            ['Empresa', 'Papel', 'Subsetor', 'Score_WSM', 'Margem_Graham', 'Margem_Barsi', 'P_L', 'ROE']
-        ].head(top_n)
-
-        # Formatar números
-        colunas_formatar = ['Score_WSM', 'Margem_Graham', 'Margem_Barsi', 'P_L', 'ROE']
-        for coluna in colunas_formatar:
-            top_empresas[coluna] = top_empresas[coluna].round(2)
-
-        return top_empresas
-
-    def _exibir_resultados(self, resultados, top_empresas):
-        """Exibe resultados formatados"""
-        print(top_empresas.to_string(index=False))
-
-        print(f"\nESTATISTICAS DA ANALISE:")
-        print(f"Total de empresas analisadas: {len(resultados)}")
-        print(f"Score medio: {resultados['Score_WSM'].mean():.2f}")
-        print(f"Score maximo: {resultados['Score_WSM'].max():.2f}")
-        print(f"Score minimo: {resultados['Score_WSM'].min():.2f}")
-
-    def gerar_visualizacoes(self, df_visualizacao, top_n, apenas_graficos=False):
-        """Gera todas as visualizações usando o DataFrame preparado"""
-        print("\nGerando gráficos da análise WSM...")
-
-        # Verificar se temos dados suficientes para o WSM
-        if 'Score_WSM' in df_visualizacao.columns:
-            visualizador_wsm = VisualizadorScoreFundamentalista(df_visualizacao)
-            figs = visualizador_wsm.gerar_relatorio_completo(
-                top_n=top_n,
-                save_path="data/analises/wsm_completo"
-            )
-
-            # Salvar resultados completos
-            self._salvar_resultados(df_visualizacao, "data/analises/resultados_wsm_completo.csv")
-        else:
-            print("Aviso: Coluna 'Score_WSM' não encontrada para gerar gráficos WSM")
-            figs = []
-
-        # Gerar visualizações originais (se não for apenas gráficos)
-        if not apenas_graficos:
-            print("\nGerando visualizações originais...")
-
-            # Verificar colunas necessárias para o VisualizadorAnalises
-            colunas_necessarias = ['graham_margem', 'barsi_margem', 'pl_subsetor_margem']
-            colunas_faltantes = [col for col in colunas_necessarias if col not in df_visualizacao.columns]
-
-            if colunas_faltantes:
-                print(f"Aviso: Colunas faltantes para visualização original: {colunas_faltantes}")
-                print("Gerando apenas gráficos disponíveis...")
-
-            try:
-                visualizador = VisualizadorAnalises(df_visualizacao)
-                visualizador.gerar_relatorio_completo(top_n=top_n)
-            except KeyError as e:
-                print(f"Erro ao gerar visualizações originais: {e}")
-                print("Continuando com outras visualizações...")
-
-        return figs
-
-    def _salvar_resultados(self, df, caminho):
-        """Salva resultados em arquivo CSV"""
-        try:
-            os.makedirs(os.path.dirname(caminho), exist_ok=True)
-            df.to_csv(caminho, index=False)
-            print(f"Resultados completos salvos em: {caminho}")
-        except Exception as e:
-            print(f"Erro ao salvar resultados: {e}")
-
-    def exibir_estatisticas_rapidas(self, df):
-        """Exibe estatísticas rápidas do dataset"""
-        print(f"\nRESUMO:")
-        print(f"Margem Graham positiva: {(df['graham_margem'] > 0).sum()}")
-        print(f"Margem Barsi positiva: {(df['barsi_margem'] > 0).sum()}")
-        print(f"Desconto PL: {(df['pl_subsetor_margem'] > 0).sum()}")
-
-    def executar(self):
-        """Método principal que executa toda a análise"""
-        args = self.parse_arguments()
-        top_n = args.top_n
-
-        print("Argumentos recebidos:")
-        print(f"  --no-cache: {args.no_cache}")
-        print(f"  --apenas-graficos: {args.apenas_graficos}")
-        print(f"  --top-n: {args.top_n}")
-
-        # Carregar dados
-        usar_cache = not args.no_cache
-        df_original = self.data_provider.carregar_dados(usar_cache=usar_cache)
-
-        if df_original is None:
-            print("Erro: Não foi possível carregar os dados.")
-            return
-
-        # Processar dados
-        acoes_ignorar = self.carregar_ignorar_acoes()
-        df_original = df_original[~df_original['Papel'].isin(acoes_ignorar)]
-        print(f"Total de ativos: {len(df_original)}")
-
-        # Adicionar análises
-        if 'graham_margem' not in df_original.columns:
-            df = self.adicionar_analises(df_original)
-        else:
-            df = df_original
-
-        # Salvar dataset atualizado
-        caminho_original = self.data_provider._get_nome_arquivo()
-        df.to_csv(caminho_original, index=False)
-        print(f"Dataset atualizado: {caminho_original}")
-
-        # Exibir estatísticas
-        self.exibir_estatisticas_rapidas(df)
+        # Exibir estrutura de pesos utilizada
+        dataframe_pesos = exibir_estrutura_pesos()
+        print("\n📊 ESTRUTURA DE PESOS DA ANÁLISE:")
+        print(dataframe_pesos.to_string(index=False))
 
         # Executar análise WSM
-        df_completo_com_scores, df_top_empresas = self.wsm_analise_completa(df, top_n)
+        analisador_wsm = AnalisadorFundamentalistaWSM(dataframe)
+        resultados_completos = analisador_wsm.executar_analise()
 
-        # CORREÇÃO: Garantir que todas as colunas necessárias estejam presentes
-        df_para_visualizacao = self._preparar_dataframe_visualizacao(df, df_completo_com_scores)
+        # Preparar ranking das melhores empresas
+        top_empresas = self._preparar_ranking_empresas(resultados_completos, quantidade_rankings)
+
+        # Exibir resultados
+        self._apresentar_resultados_analise(resultados_completos, top_empresas)
+
+        return resultados_completos, top_empresas
+
+    def _preparar_ranking_empresas(self, resultados_analise, quantidade_rankings):
+        """
+        Prepara ranking das melhores empresas baseado no score WSM
+
+        Args:
+            resultados_analise (pd.DataFrame): DataFrame com resultados completos
+            quantidade_rankings (int): Número de empresas no ranking
+
+        Returns:
+            pd.DataFrame: DataFrame com top empresas formatadas
+        """
+        colunas_ranking = [
+            'empresa', 'ticker', 'subsetor', 'score_wsm', 'score_wsm_penalidade',
+            'margem_graham', 'margem_barsi', 'preco_lucro', 'roe'
+        ]
+
+        ranking_empresas = resultados_analise[colunas_ranking].head(quantidade_rankings)
+
+        # Formatar valores numéricos
+        colunas_numericas = ['score_wsm', 'score_wsm_penalidade', 'margem_graham', 'margem_barsi', 'preco_lucro', 'roe']
+        for coluna in colunas_numericas:
+            ranking_empresas[coluna] = ranking_empresas[coluna].round(2)
+
+        return ranking_empresas
+
+    def _apresentar_resultados_analise(self, resultados_completos, ranking_empresas):
+        """
+        Apresenta resultados formatados da análise
+
+        Args:
+            resultados_completos (pd.DataFrame): DataFrame com todos os resultados
+            ranking_empresas (pd.DataFrame): DataFrame com ranking das melhores
+        """
+        print(f"\n🏆 TOP {len(ranking_empresas)} EMPRESAS - RANKING WSM:")
+        print("-" * 80)
+        print(ranking_empresas.to_string(index=False))
+        print("-" * 80)
+
+        # Estatísticas da análise
+        score_wsm = resultados_completos['score_wsm']
+        print(f"\n📈 ESTATÍSTICAS DA ANÁLISE:")
+        print(f"   • Total de empresas analisadas: {len(resultados_completos):,}")
+        print(f"   • Score WSM médio: {score_wsm.mean():.2f}")
+        print(f"   • Score WSM máximo: {score_wsm.max():.2f}")
+        print(f"   • Score WSM mínimo: {score_wsm.min():.2f}")
+        print(f"   • Desvio padrão: {score_wsm.std():.2f}")
+
+    def _gerar_visualizacoes_completas(self, dataframe_visualizacao, quantidade_rankings,
+                                       modo_apenas_visualizacoes=False):
+        """
+        Gera todas as visualizações e relatórios da análise
+
+        Args:
+            dataframe_visualizacao (pd.DataFrame): DataFrame preparado para visualização
+            quantidade_rankings (int): Número de empresas nos rankings visuais
+            modo_apenas_visualizacoes (bool): Modo apenas geração de visualizações
+
+        Returns:
+            list: Lista de figuras geradas
+        """
+        print("\n🎨 Gerando visualizações e relatórios...")
+
+        figuras_geradas = []
+        timestamp_analise = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Gerar visualizações WSM
+        if 'score_wsm' in dataframe_visualizacao.columns:
+            gerador_wsm = GeradorVisualizacoesWSM(dataframe_visualizacao)
+            figuras_wsm = gerador_wsm.gerar_relatorio_completo(
+                top_empresas=quantidade_rankings,
+                caminho_salvamento=f"output/graficos/wsm_truncado_completo_{timestamp_analise}",
+                penalidade=False
+            )
+            figuras_geradas.extend(figuras_wsm)
+
+            figuras_wsm_penalidade = gerador_wsm.gerar_relatorio_completo(
+                top_empresas=quantidade_rankings,
+                caminho_salvamento=f"output/graficos/wsm_penalizado_completo_{timestamp_analise}",
+                penalidade=True
+            )
+            figuras_geradas.extend(figuras_wsm_penalidade)
+
+            # Salvar resultados completos
+            self._exportar_resultados_completos(
+                dataframe_visualizacao,
+                f"output/dados/analises/resultados_wsm_completo_{timestamp_analise}.csv"
+            )
+        else:
+            print("⚠️ Coluna 'score_wsm' não encontrada para geração de gráficos WSM")
+
+        # Gerar visualizações das metodologias tradicionais
+        if not modo_apenas_visualizacoes:
+            print("\n📊 Gerando visualizações das metodologias tradicionais...")
+
+            colunas_necessarias = ['margem_seguranca_graham', 'margem_seguranca_barsi', 'margem_seguranca_pl_setor']
+            colunas_disponiveis = [col for col in colunas_necessarias if col in dataframe_visualizacao.columns]
+
+            if len(colunas_disponiveis) == len(colunas_necessarias):
+                try:
+                    gerador_visualizacoes = GeradorVisualizacoes(dataframe_visualizacao)
+                    gerador_visualizacoes.gerar_relatorio_completo(
+                        top_empresas=quantidade_rankings
+                    )
+                except Exception as erro:
+                    print(f"⚠️ Erro ao gerar visualizações tradicionais: {erro}")
+            else:
+                print(
+                    f"⚠️ Metodologias tradicionais: {len(colunas_disponiveis)}/{len(colunas_necessarias)} colunas disponíveis")
+
+        return figuras_geradas
+
+    def _exportar_resultados_completos(self, dataframe, caminho_arquivo):
+        """
+        Exporta resultados completos para arquivo CSV
+
+        Args:
+            dataframe (pd.DataFrame): DataFrame com resultados
+            caminho_arquivo (str): Caminho para salvar o arquivo
+        """
+        try:
+            dataframe.to_csv(caminho_arquivo, index=False, encoding='utf-8')
+            print(f"💾 Resultados exportados: {caminho_arquivo}")
+        except Exception as erro:
+            print(f"❌ Erro ao exportar resultados: {erro}")
+
+    def _exportar_para_excel(self, dataframe, caminho_arquivo):
+        """
+        Exporta resultados completos para Excel com múltimas abas
+
+        Args:
+            dataframe (pd.DataFrame): DataFrame com resultados
+            caminho_arquivo (str): Caminho para salvar o arquivo Excel
+        """
+        try:
+            with pd.ExcelWriter(caminho_arquivo, engine='openpyxl') as escritor:
+                # Aba com todos os dados
+                dataframe.to_excel(escritor, sheet_name='Dados_Completos', index=False)
+
+                # Aba com ranking WSM
+                if 'score_wsm' in dataframe.columns:
+                    ranking_wsm = dataframe.nlargest(50, 'score_wsm')[
+                        ['empresa', 'ticker', 'subsetor', 'score_wsm', 'score_wsm_penalidade', 'margem_graham', 'margem_barsi']
+                    ]
+                    ranking_wsm.to_excel(escritor, sheet_name='Ranking_WSM', index=False)
+
+                # Aba com oportunidades por metodologia
+                oportunidades = dataframe[
+                    (dataframe['margem_seguranca_graham'] > 0) |
+                    (dataframe['margem_seguranca_barsi'] > 0) |
+                    (dataframe['margem_seguranca_pl_setor'] > 0)
+                    ]
+                oportunidades.to_excel(escritor, sheet_name='Oportunidades', index=False)
+
+            print(f"📊 Dados exportados para Excel: {caminho_arquivo}")
+        except Exception as erro:
+            print(f"❌ Erro ao exportar para Excel: {erro}")
+
+    def _exibir_resumo_execucao(self, dataframe):
+        """
+        Exibe resumo executivo da análise realizada
+
+        Args:
+            dataframe (pd.DataFrame): DataFrame com resultados da análise
+        """
+        print("\n" + "=" * 60)
+        print("📋 RESUMO EXECUTIVO DA ANÁLISE")
+        print("=" * 60)
+
+        total_empresas = len(dataframe)
+        empresas_margem_graham = (dataframe['margem_seguranca_graham'] > 0).sum()
+        empresas_margem_barsi = (dataframe['margem_seguranca_barsi'] > 0).sum()
+        empresas_margem_pl_setor = (dataframe['margem_seguranca_pl_setor'] > 0).sum()
+
+        print(f"📊 Total de empresas analisadas: {total_empresas:,}")
+        print(f"🎯 Oportunidades identificadas:")
+        print(f"   • Metodologia Graham: {empresas_margem_graham} empresas")
+        print(f"   • Metodologia Barsi: {empresas_margem_barsi} empresas")
+        print(f"   • P/L Descontado: {empresas_margem_pl_setor} empresas")
+
+        # Empresas com múltiplas metodologias indicando oportunidade
+        oportunidades_multiplas = (
+                (dataframe['margem_seguranca_graham'] > 0) &
+                (dataframe['margem_seguranca_barsi'] > 0)
+        ).sum()
+
+        if oportunidades_multiplas > 0:
+            print(f"💎 Oportunidades consolidadas: {oportunidades_multiplas} empresas")
+
+        print("=" * 60)
+
+    def executar_analise_completa(self):
+        """Método principal que executa o fluxo completo de análise"""
+        print("🚀 INICIANDO SISTEMA DE ANÁLISE FUNDAMENTALISTA")
+        print("=" * 70)
+
+        # Processar argumentos
+        argumentos = self._processar_argumentos()
+        quantidade_rankings = argumentos.quantidade_rankings
+
+        print("⚙️  Configurações da análise:")
+        print(f"   • Atualizar dados: {'SIM' if argumentos.atualizar_dados else 'NÃO'}")
+        print(f"   • Apenas visualizações: {'SIM' if argumentos.apenas_visualizacoes else 'NÃO'}")
+        print(f"   • Empresas no ranking: {quantidade_rankings}")
+        print(f"   • Exportar dados: {'SIM' if argumentos.exportar_dados else 'NÃO'}")
+
+        # Carregar dados fundamentais
+        print("\n📥 Carregando dados fundamentais...")
+        usar_cache = not argumentos.atualizar_dados
+        dados_fundamentais = self.provedor_dados.carregar_dados_fundamentais(usar_cache=usar_cache)
+
+        if dados_fundamentais is None or dados_fundamentais.empty:
+            print("❌ ERRO: Não foi possível carregar os dados fundamentais")
+            return
+
+        print(f"✅ Dados carregados: {len(dados_fundamentais)} ativos encontrados")
+
+        # Aplicar filtros de exclusão
+        tickers_excluir = self._carregar_lista_exclusoes()
+        if tickers_excluir:
+            dados_fundamentais = dados_fundamentais[~dados_fundamentais['ticker'].isin(tickers_excluir)]
+            print(f"✅ Filtros aplicados: {len(dados_fundamentais)} ativos após exclusões")
+
+        # Aplicar metodologias de valuation (se necessário)
+        if argumentos.apenas_visualizacoes:
+            dados_analise = dados_fundamentais
+            print("📊 Modo apenas visualizações - usando dados existentes")
+        else:
+            dados_analise = self._aplicar_metodologias_valuation(dados_fundamentais)
+            # Salvar dataset enriquecido
+            caminho_dataset = f"output/dados/analises/dataset_enriquecido_{datetime.now().strftime('%Y%m%d')}.csv"
+            dados_analise.to_csv(caminho_dataset, index=False)
+            print(f"💾 Dataset enriquecido salvo: {caminho_dataset}")
+
+        # Exibir resumo inicial
+        self._exibir_resumo_execucao(dados_analise)
+
+        # Executar análise WSM
+        dados_com_scores, ranking_empresas = self._executar_analise_fundamentalista_wsm(
+            dados_analise, quantidade_rankings
+        )
+
+        # Preparar dados para visualização
+        dados_visualizacao = self._preparar_dados_visualizacao(dados_analise, dados_com_scores)
+
+        # Mostra todas as colunas com os primeiros registros
+        # pd.set_option('display.max_columns', None)
+        # print(dados_visualizacao.head())
 
         # Gerar visualizações
-        self.gerar_visualizacoes(df_para_visualizacao, top_n, args.apenas_graficos)
+        figuras = self._gerar_visualizacoes_completas(
+            dados_visualizacao, quantidade_rankings, argumentos.apenas_visualizacoes
+        )
 
-        # Mostrar gráficos
-        plt.show()
+        # Exportar dados se solicitado
+        if argumentos.exportar_dados:
+            caminho_excel = f"output/dados/analises/relatorio_completo_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+            self._exportar_para_excel(dados_visualizacao, caminho_excel)
 
-    def _preparar_dataframe_visualizacao(self, df_original, df_wsm):
-        """Prepara DataFrame com todas as colunas necessárias para visualização"""
-        # Juntar os dados originais com os scores do WSM
-        df_visualizacao = df_original.copy()
+        # Finalização
+        print("\n" + "=" * 70)
+        print("✅ ANÁLISE CONCLUÍDA COM SUCESSO!")
+        print("=" * 70)
+        print("📈 Para visualizar os gráficos, feche as janelas do matplotlib")
+        print("💾 Relatórios salvos em: output/dados/analises/")
+        print("🖼️  Visualizações salvas em: output/graficos/")
 
-        # Adicionar coluna de score do WSM se existir no df_wsm
-        if 'Score_WSM' in df_wsm.columns:
-            # Fazer merge baseado no Papel
-            scores = df_wsm[['Papel', 'Score_WSM']].drop_duplicates()
-            df_visualizacao = df_visualizacao.merge(scores, on='Papel', how='left')
+        # Exibir gráficos
+        if figuras:
+            plt.show()
+        else:
+            print("⚠️ Nenhuma visualização gerada para exibição")
 
-        # Verificar colunas necessárias para o VisualizadorAnalises
-        colunas_necessarias = ['graham_margem', 'barsi_margem', 'pl_subsetor_margem', 'Score_WSM']
+    def _preparar_dados_visualizacao(self, dados_originais, dados_wsm):
+        """
+        Prepara DataFrame unificado para visualização
 
-        print("\nVERIFICAÇÃO DE COLUNAS PARA VISUALIZAÇÃO:")
-        for coluna in colunas_necessarias:
-            if coluna in df_visualizacao.columns:
-                print(f"✓ {coluna}: presente")
+        Args:
+            dados_originais (pd.DataFrame): Dados com metodologias tradicionais
+            dados_wsm (pd.DataFrame): Dados com scores WSM
+
+        Returns:
+            pd.DataFrame: DataFrame unificado para visualização
+        """
+        dados_visualizacao = dados_originais.copy()
+
+        # Integrar scores WSM se disponíveis
+        if 'score_wsm' in dados_wsm.columns:
+            scores_wsm = dados_wsm[['ticker', 'score_wsm' ,'score_wsm_penalidade']].drop_duplicates()
+            dados_visualizacao = dados_visualizacao.merge(scores_wsm, on='ticker', how='left')
+            print("✅ Scores WSM integrados para visualização")
+
+        # Verificar integridade dos dados
+        colunas_verificar = [
+            'margem_seguranca_graham', 'margem_seguranca_barsi',
+            'margem_seguranca_pl_setor', 'score_wsm', 'score_wsm_penalidade'
+        ]
+
+        print("\n🔍 VERIFICAÇÃO DE INTEGRIDADE DOS DADOS:")
+        for coluna in colunas_verificar:
+            if coluna in dados_visualizacao.columns:
+                dados_validos = dados_visualizacao[coluna].notna().sum()
+                print(f"   ✅ {coluna}: {dados_validos}/{len(dados_visualizacao)} valores válidos")
             else:
-                print(f"✗ {coluna}: ausente")
+                print(f"   ❌ {coluna}: COLUNA AUSENTE")
 
-        return df_visualizacao
+        return dados_visualizacao
 
 
 def main():
-    """Função principal"""
-    analisador = AnalisadorAcoes()
-    analisador.executar()
+    """Função principal de inicialização do sistema"""
+    try:
+        sistema_analise = SistemaAnaliseFundamentalista()
+        sistema_analise.executar_analise_completa()
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Análise interrompida pelo usuário")
+    except Exception as erro:
+        print(f"\n❌ ERRO CRÍTICO: {erro}")
+        print("Por favor, verifique a configuração e tente novamente")
 
 
 if __name__ == "__main__":
