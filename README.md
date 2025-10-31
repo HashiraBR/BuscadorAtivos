@@ -1,4 +1,4 @@
-# Analysis of Stock Market Shares
+# Radar Financeiro
 
 Um analisador fundamentalista de ações brasileiras que utiliza múltiplas metodologias de valuation para identificar oportunidades de investimento.
 
@@ -38,19 +38,22 @@ AnalysisOfStockMarketShares/
 ├── run_analysis.sh
 ├── run_analysis.bat
 ├── main.py
-├── ignorar_acoes.txt
+├── config/
+│   └── lista_exclusoes.txt
+├── output/
+│   └── dados/analises/
+│   └── dados/cache/
+│   └── graficos/
 ├── data/
-│   └── download/
-│   └── analises/
-│   └── fundamentus.py
+│   └── provedor_dados_fundamentus.py
 ├── methodologies/
-│   ├── graham.py
-│   ├── barsi.py
-│   └── pl_descontado.py
-│   └── wsm_fundamentalsita.py
+│   ├── analisador_graham.py
+│   ├── analisador_barsi.py
+│   └── analisador_pl_descontado.py
+│   └── analisador_fundamentalsita_wsm.py
 └── visualization/
-    └── visualizador.py
-    └── visualizador_wsm.py
+    └── gerador_visualizacoes.py
+    └── gerador_visualizacoes_wsm.py
 ```
 ## Como Usar
 
@@ -74,7 +77,7 @@ AnalysisOfStockMarketShares/
 ## Configuração
 
 ### Personalizar Ações Excluídas
-Edite o arquivo `ignorar_acoes.txt`:
+Edite o arquivo `lista_exclusoes.txt`:
 * Lista de ações para remover da análise
 * Use `#` para comentar linhas
 
@@ -109,18 +112,19 @@ O sistema gera alguns rankings com base no método de Bejamim Graham, Preço-tet
 
 Para alterar os pesos, edite os arquivos:
 ```
-methodologies/wsm_fundamentalista.py #para WSM completo
-criar_graficos_wsm_lado_a_lado em visualization/visualizador.py #Demais WSM
+metodologias/analisador_fundamentalista_wsm.py #para WSM completo
+visualizacao/gerador_visualizacoes.py #Demais WSM
 ```
 
 ## Saídas
 
 ### Arquivos Gerados
-- data/download/ativos_DD_MM_YYYY.csv: Dataset completo com analises
-- data/analises/ranking_metodologias.png: Graficos individuais
-- data/analises/ranking_wsm_pesos.png: Comparação WSM
-- data/analises/ranking_consolidado.png: Visao consolidada
-- data/analises/wsm_completo_*.png: Vários gráficos para análise com base nos pesos oferecidos
+```
+├── output/
+│   └── dados/analises/
+│   └── dados/cache/
+│   └── graficos/
+```
 
 ### Console
 - Ranking das melhores oportunidades por metodologia
@@ -131,27 +135,21 @@ criar_graficos_wsm_lado_a_lado em visualization/visualizador.py #Demais WSM
 Algumas empresas podem não aparecer nos rankings gerados pela metodologia WSM devido a características específicas de seus setores que impedem o cálculo adequado das médias ponderadas. Por exemplo: setor bancário e seguradoras. 
 
 Para visualizar todas as empresas que não foram consideradas no ranking WSM:
-- Consulte o arquivo: `data/analises/resultados_wsm_completo.csv`
+- Consulte o arquivo: `output/resultados_wsm_completo.csv`
 - Verifique a coluna Score_WSM - valores nulos ou ausentes indicam empresas excluídas da análise
 - Analise o campo Subsetor para identificar padrões de exclusão por segmento
+- Observe se as empresas de seu interesse entraram na exclusão por outliers.
 
-## Exemplos de Gráficos
-
-### Ranking por Metodologia
-![Ranking das Metodologias](data/analises/ranking_metodologias.png)
-
-### Comparação WSM - Pesos Diferentes  
-![Comparacao WSM](data/analises/ranking_wsm_pesos.png)
-
-### Ranking Consolidado
-![Ranking Consolidado](data/analises/ranking_consolidado.png)
-
-Diversos outros gráficos são gerados e você pode verificar exemplos no diretório `data/analises`
+## Gráficos
+Veja:
+```
+│   └── graficos/
+```
 
 ## Personalização
 
 ### Adicionar Novas Metodologias
-1. Crie nova classe em `methodologies/`
+1. Crie nova classe em `metodologias/`
 2. Importe no `main.py`
 3. Adicione na função `adicionar_analises`
 
@@ -164,7 +162,7 @@ Diversos outros gráficos são gerados e você pode verificar exemplos no diret�
 ```chmod +x run_analysis.sh```
 
 ### Arquivo de Exclusão Não Encontrado
-- Certifique-se que `ignorar_acoes.txt` está na raíz do projeto
+- Certifique-se que `lista_exclusoes.txt` está na em `config/` do projeto
 
 ## Refinamento da Análise
 - **Personalize seus critérios:** Ignore empresas que não se alinham com seu perfil de investimento, estratégia ou tolerância a risco
@@ -181,4 +179,5 @@ Diversos outros gráficos são gerados e você pode verificar exemplos no diret�
 
 ## Licença
 - Projeto para fins educacionais e de pesquisa.
+- Autor: Danne Makleyston Gomes Pereira
 
