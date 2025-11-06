@@ -1,58 +1,104 @@
 @echo off
-REM =========================================
-REM  ANALISADOR DE AÇÕES - INICIANDO (Windows)
-REM =========================================
+setlocal enabledelayedexpansion
 
-REM Descobrir o diretório onde o script está localizado
-set SCRIPT_DIR=%~dp0
-cd /d "%SCRIPT_DIR%" || (
-    echo ERRO: Nao foi possivel acessar o diretorio do script!
-    exit /b 1
-)
+rem =========================================
+rem  Configurações iniciais
+rem =========================================
+set "SCRIPT_DIR=%~dp0"
+set "ATUALIZAR_DADOS=false"
+set "APENAS_VISUALIZACOES=false"
+set "QUANTIDADE_RANKINGS=15"
+set "EXPORTAR_DADOS=false"
 
-REM Verificar se o main.py existe
-if not exist "main.py" (
-    echo ERRO: Arquivo main.py nao encontrado em "%SCRIPT_DIR%"
-    exit /b 1
-)
+rem =========================================
+rem  Processar parâmetros
+rem =========================================
+:process_args
+if "%~1"=="" goto fim_args
 
-REM Variáveis de controle
-set NO_CACHE=false
-set APENAS_GRAFICOS=false
-
-REM Processar parâmetros
-:parse
-if "%~1"=="" goto after_parse
-if "%~1"=="--no-cache" (
-    set NO_CACHE=true
+if "%~1"=="--atualizar-dados" (
+    set "ATUALIZAR_DADOS=true"
     shift
-    goto parse
+    goto process_args
 )
-if "%~1"=="--apenas-graficos" (
-    set APENAS_GRAFICOS=true
+
+if "%~1"=="--apenas-visualizacoes" (
+    set "APENAS_VISUALIZACOES=true"
     shift
-    goto parse
+    goto process_args
 )
-echo Parametro desconhecido: %~1
+
+if "%~1"=="--quantidade-rankings" (
+    set "QUANTIDADE_RANKINGS=%~2"
+    shift
+    shift
+    goto process_args
+)
+
+if "%~1"=="--exportar-dados" (
+    set "EXPORTAR_DADOS=true"
+    shift
+    goto process_args
+)
+
+echo Parâmetro desconhecido: %~1
+echo Parâmetros válidos: --atualizar-dados --apenas-visualizacoes --quantidade-rankings N --exportar-dados
 exit /b 1
-:after_parse
 
-REM Construir comando
-set COMANDO=python main.py
+:fim_args
 
-if "%NO_CACHE%"=="true" (
-    set COMANDO=%COMANDO% --no-cache
+rem =========================================
+rem  Cabeçalho
+rem =========================================
+echo =========================================
+echo   ANALISADOR DE AÇÕES - INICIANDO
+echo =========================================
+
+rem =========================================
+rem  Verificar arquivo principal
+rem =========================================
+cd /d "%SCRIPT_DIR%"
+if not exist "main.py" (
+    echo ERRO: Arquivo principal do sistema não encontrado em %SCRIPT_DIR%
+    echo 💡 Certifique-se de que o nome do arquivo principal está correto
+    exit /b 1
 )
 
-if "%APENAS_GRAFICOS%"=="true" (
-    set COMANDO=%COMANDO% --apenas-graficos
+rem =========================================
+rem  Construir comando
+rem =========================================
+set "COMANDO=python main.py"
+
+if "%ATUALIZAR_DADOS%"=="true" (
+    set "COMANDO=!COMANDO! --atualizar-dados"
 )
 
-echo Executando: %COMANDO%
-%COMANDO%
+if "%APENAS_VISUALIZACOES%"=="true" (
+    set "COMANDO=!COMANDO! --apenas-visualizacoes"
+)
 
-if %ERRORLEVEL%==0 (
-    echo Analise concluida com sucesso!
+if not "%QUANTIDADE_RANKINGS%"=="15" (
+    set "COMANDO=!COMANDO! --quantidade-rankings %QUANTIDADE_RANKINGS%"
+)
+
+if "%EXPORTAR_DADOS%"=="true" (
+    set "COMANDO=!COMANDO! --exportar-dados"
+)
+
+echo Executando: !COMANDO!
+echo.
+
+rem =========================================
+rem  Executar comando
+rem =========================================
+!COMANDO!
+if %errorlevel%==0 (
+    echo.
+    echo ✅ Análise concluída com sucesso!
 ) else (
-    echo ERRO: Houve um problema na execucao.
+    echo.
+    echo ❌ ERRO: Houve um problema na execução.
+    exit /b 1
 )
+
+endlocal
